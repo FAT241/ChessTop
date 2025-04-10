@@ -5,6 +5,8 @@ module org.example.chess {
 
     requires eu.hansolo.tilesfx;
     requires com.almasb.fxgl.all;
+    requires javafx.media;
+    requires java.sql;
 
     opens org.example.chess to javafx.fxml;
     exports org.example.chess;
