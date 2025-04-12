@@ -8,9 +8,11 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.scene.input.MouseEvent;
 
@@ -110,7 +112,7 @@ public class ChessGame extends Application {
                 String pgn = rs.getString("pgn");
                 int moveCount = rs.getInt("move_count");
                 int duration = rs.getInt("duration");
-                historyContent.append(String.format("Game %d | Winner: %s | PlayDate: %s\nMoveCount: %d | Time: %d giây\nPGN: %s\n\n",
+                historyContent.append(String.format("Game %d | Winner: %s | PlayDate: %s\nMoveCount: %d | Time: %d Second\nPGN: %s\n\n",
                         gameId, winner, playedDate, moveCount, duration, pgn));
             }
         } catch (SQLException e) {
@@ -148,8 +150,28 @@ public class ChessGame extends Application {
             }
         } else {
             if (gameLogic.isValidMove(selectedPiece, selectedRow, selectedCol, row, col)) {
-                String whiteMove = convertToChessNotation(selectedRow, selectedCol, row, col);
+                String whiteMove = "";
+                boolean isPawnPromotion = selectedPiece.getType().equals("pawn") && (row == 0);
+
                 board.movePiece(selectedRow, selectedCol, row, col, chessBoard);
+                gameLogic.setLastMove(selectedRow, selectedCol, row, col);
+
+                if (isPawnPromotion) {
+                    String promotedPiece = showPromotionDialog(true);
+                    String imagePath = "/pieces/75px_white_" + promotedPiece + ".png";
+                    ChessPiece newPiece = new ChessPiece(promotedPiece, true, imagePath);
+                    newPiece.setHasMoved(true);
+                    board.setPiece(row, col, newPiece);
+                    chessBoard.getChildren().remove(selectedPiece.getImageView());
+                    chessBoard.add(newPiece.getImageView(), col, row);
+                    whiteMove = convertToChessNotation(selectedRow, selectedCol, row, col) + "=" + promotedPiece.substring(0, 1).toUpperCase();
+                } else {
+                    whiteMove = convertToChessNotation(selectedRow, selectedCol, row, col);
+                    if (selectedPiece.getType().equals("king") && Math.abs(selectedCol - col) == 2) {
+                        whiteMove = (col > selectedCol) ? "O-O" : "O-O-O";
+                    }
+                }
+
                 clearHighlights();
                 isWhiteTurn = false;
                 turnLabel.setText("Black's Turn");
@@ -157,23 +179,43 @@ public class ChessGame extends Application {
 
                 if (gameLogic.isGameOver(true)) {
                     moveHistory.add(moveNumber + ". " + whiteMove);
-                    saveGameToDatabase("Black");
-                    showVictoryPanel("Black");
+                    saveGameToDatabase("White");
+                    showLosePanel("Black");
                     return;
                 }
 
                 ai.makeMove(chessBoard);
                 int[] aiMove = ai.getLastMove();
-                String blackMove = convertToChessNotation(aiMove[0], aiMove[1], aiMove[2], aiMove[3]);
+                String blackMove = "";
+                boolean isAIPawnPromotion = board.getPiece(aiMove[2], aiMove[3]).getType().equals("pawn") && (aiMove[2] == 7);
+
+                if (isAIPawnPromotion) {
+                    String promotedPiece = "queen";
+                    String imagePath = "/pieces/75px_black_" + promotedPiece + ".png";
+                    ChessPiece newPiece = new ChessPiece(promotedPiece, false, imagePath);
+                    newPiece.setHasMoved(true);
+                    board.setPiece(aiMove[2], aiMove[3], newPiece);
+                    chessBoard.getChildren().remove(board.getPiece(aiMove[2], aiMove[3]).getImageView());
+                    chessBoard.add(newPiece.getImageView(), aiMove[3], aiMove[2]);
+                    blackMove = convertToChessNotation(aiMove[0], aiMove[1], aiMove[2], aiMove[3]) + "=" + promotedPiece.substring(0, 1).toUpperCase();
+                } else {
+                    blackMove = convertToChessNotation(aiMove[0], aiMove[1], aiMove[2], aiMove[3]);
+                    if (board.getPiece(aiMove[2], aiMove[3]).getType().equals("king") && Math.abs(aiMove[1] - aiMove[3]) == 2) {
+                        blackMove = (aiMove[3] > aiMove[1]) ? "O-O" : "O-O-O";
+                    }
+                }
+
+                gameLogic.setLastMove(aiMove[0], aiMove[1], aiMove[2], aiMove[3]);
                 moveHistory.add(moveNumber + ". " + whiteMove + " " + blackMove);
                 moveNumber++;
 
-                isWhiteTurn = true;
-                turnLabel.setText("White's Turn");
-
-                if (gameLogic.isGameOver(false)) {
-                    saveGameToDatabase("White");
-                    showVictoryPanel("White");
+                // Kiểm tra xem quân trắng có bị chiếu hết không
+                if (gameLogic.isGameOver(true)) {
+                    saveGameToDatabase("Black");
+                    showLosePanel("White");
+                } else {
+                    isWhiteTurn = true;
+                    turnLabel.setText("White's Turn");
                 }
             } else {
                 clearHighlights();
@@ -182,8 +224,53 @@ public class ChessGame extends Application {
         }
     }
 
+    private String showPromotionDialog(boolean isWhite) {
+        Stage dialog = new Stage();
+        dialog.initModality(Modality.APPLICATION_MODAL);
+        dialog.initOwner(primaryStage);
+        dialog.setTitle("Pawn Promotion");
+
+        Label label = new Label("Choose a piece to promote to:");
+        label.setStyle("-fx-font-size: 14px;");
+
+        Button queenButton = new Button("Queen");
+        Button rookButton = new Button("Rook");
+        Button bishopButton = new Button("Bishop");
+        Button knightButton = new Button("Knight");
+
+        final String[] selectedPiece = new String[1];
+        queenButton.setOnAction(e -> {
+            selectedPiece[0] = "queen";
+            dialog.close();
+        });
+        rookButton.setOnAction(e -> {
+            selectedPiece[0] = "rook";
+            dialog.close();
+        });
+        bishopButton.setOnAction(e -> {
+            selectedPiece[0] = "bishop";
+            dialog.close();
+        });
+        knightButton.setOnAction(e -> {
+            selectedPiece[0] = "knight";
+            dialog.close();
+        });
+
+        HBox buttonBox = new HBox(10, queenButton, rookButton, bishopButton, knightButton);
+        buttonBox.setAlignment(Pos.CENTER);
+        VBox dialogLayout = new VBox(10, label, buttonBox);
+        dialogLayout.setAlignment(Pos.CENTER);
+        dialogLayout.setStyle("-fx-padding: 20;");
+
+        Scene dialogScene = new Scene(dialogLayout, 300, 150);
+        dialog.setScene(dialogScene);
+        dialog.showAndWait();
+
+        return selectedPiece[0] != null ? selectedPiece[0] : "queen";
+    }
+
     private String convertToChessNotation(int fromRow, int fromCol, int toRow, int toCol) {
-        ChessPiece piece = board.getPiece(fromRow, fromCol);
+        ChessPiece piece = board.getPiece(toRow, toCol);
         if (piece == null) {
             return "";
         }
@@ -191,6 +278,17 @@ public class ChessGame extends Application {
         String pieceNotation = pieceType.equals("pawn") ? "" : pieceType.substring(0, 1).toUpperCase();
         String toFile = String.valueOf((char) ('a' + toCol));
         String toRank = String.valueOf(8 - toRow);
+
+        if (pieceType.equals("pawn") && Math.abs(fromCol - toCol) == 1 && board.getPiece(toRow, toCol) == null) {
+            int direction = piece.isWhite() ? -1 : 1;
+            if ((piece.isWhite() && fromRow == 3) || (!piece.isWhite() && fromRow == 4)) {
+                if (toRow == fromRow + direction) {
+                    String fromFile = String.valueOf((char) ('a' + fromCol));
+                    return fromFile + "x" + toFile + toRank + " e.p.";
+                }
+            }
+        }
+
         return pieceNotation + toFile + toRank;
     }
 
@@ -262,6 +360,16 @@ public class ChessGame extends Application {
     private void showVictoryPanel(String winner) {
         VictoryPanel victoryPanel = new VictoryPanel(primaryStage, () -> startGame(primaryStage), this);
         primaryStage.setScene(victoryPanel.createVictoryScene(winner));
+    }
+
+    private void showLosePanel(String loser) {
+        LosePanel losePanel = new LosePanel(primaryStage, () -> startGame(primaryStage), this);
+        primaryStage.setScene(losePanel.createLoseScene(loser));
+    }
+
+    public String getLastMoveNotation() {
+        if (moveHistory.isEmpty()) return "No moves";
+        return moveHistory.get(moveHistory.size() - 1);
     }
 
     public static void main(String[] args) {
