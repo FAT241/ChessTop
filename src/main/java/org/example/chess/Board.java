@@ -1,11 +1,12 @@
 package org.example.chess;
 
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.GridPane;
 
 public class Board {
-    private static final int BOARD_SIZE = 8; // Kích thước bàn cờ 8x8
-    private static final int TILE_SIZE = 80; // Kích thước mỗi ô
-    private ChessPiece[][] board; // Mảng lưu quân cờ
+    private static final int BOARD_SIZE = 8;
+    private static final int TILE_SIZE = 80;
+    private ChessPiece[][] board;
 
     public Board() {
         board = new ChessPiece[BOARD_SIZE][BOARD_SIZE];
@@ -51,17 +52,10 @@ public class Board {
 
     public void movePiece(int fromRow, int fromCol, int toRow, int toCol, GridPane chessBoard) {
         ChessPiece piece = board[fromRow][fromCol];
-        if (piece == null) {
-            System.out.println("No piece at (" + fromRow + ", " + fromCol + ")");
-            return;
-        }
+        if (piece == null) return;
 
-        // Kiểm tra ô đích có quân cùng màu không
         ChessPiece targetPiece = board[toRow][toCol];
-        if (targetPiece != null && targetPiece.isWhite() == piece.isWhite()) {
-            System.out.println("Cannot move to a square occupied by a piece of the same color!");
-            return;
-        }
+        if (targetPiece != null && targetPiece.isWhite() == piece.isWhite()) return;
 
         // Xử lý nhập thành
         if (piece.getType().equals("king") && Math.abs(fromCol - toCol) == 2) {
@@ -90,46 +84,24 @@ public class Board {
                         if (chessBoard != null) {
                             chessBoard.getChildren().remove(capturedPawn.getImageView());
                         }
-                        System.out.println("Captured pawn via en passant at (" + fromRow + ", " + toCol + ")");
                     }
                 }
             }
         }
 
-        // Xóa quân cờ tại vị trí cũ
         board[fromRow][fromCol] = null;
-
-        // Cập nhật giao diện
         if (chessBoard != null) {
-            // Xóa ImageView của quân cờ tại vị trí cũ
             chessBoard.getChildren().remove(piece.getImageView());
-
-            // Xóa tất cả ImageView tại ô đích để tránh đè
             if (targetPiece != null) {
-                System.out.println("Attempting to capture " + targetPiece.getType() + " at (" + toRow + ", " + toCol + ")");
-                if (!chessBoard.getChildren().remove(targetPiece.getImageView())) {
-                    System.out.println("Warning: Failed to remove ImageView of " + targetPiece.getType() + " at (" + toRow + ", " + toCol + ")");
-                }
-                // Debug đặc biệt cho xe đen tại h8
-                if (toRow == 0 && toCol == 7 && targetPiece.getType().equals("rook") && !targetPiece.isWhite()) {
-                    System.out.println("Captured black rook at h8 (0, 7)");
-                }
+                chessBoard.getChildren().removeIf(node -> node instanceof ImageView &&
+                        GridPane.getRowIndex(node) == toRow && GridPane.getColumnIndex(node) == toCol);
             }
-
-            // Đặt lại vị trí của ImageView và thêm vào vị trí mới
             piece.getImageView().setTranslateX(0);
             piece.getImageView().setTranslateY(0);
             chessBoard.add(piece.getImageView(), toCol, toRow);
-        } else {
-            if (targetPiece != null) {
-                System.out.println("Captured " + targetPiece.getType() + " at (" + toRow + ", " + toCol + ")");
-            }
         }
-
-        // Cập nhật vị trí của quân cờ trên mảng board
         board[toRow][toCol] = piece;
         piece.setHasMoved(true);
-        System.out.println("Moved " + piece.getType() + " from (" + fromRow + ", " + fromCol + ") to (" + toRow + ", " + toCol + ")");
     }
 
     public ChessPiece getPiece(int row, int col) {

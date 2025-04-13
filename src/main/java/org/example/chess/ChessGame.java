@@ -39,11 +39,13 @@ public class ChessGame extends Application {
     private List<String> moveHistory = new ArrayList<>();
     private int moveNumber = 1;
     private LocalDateTime gameStartTime;
+    private VBox root; // Layout chính
+    private Scene gameScene; // Lưu Scene gốc của bàn cờ
 
     @Override
     public void start(Stage primaryStage) {
         this.primaryStage = primaryStage;
-        UIPanel uiPanel = new UIPanel(primaryStage, () -> startGame(primaryStage), this);
+        UIPanel uiPanel = new UIPanel(primaryStage, () -> resetGame(true), this);
         primaryStage.setScene(uiPanel.createScene());
         primaryStage.setTitle("Chess Game: Player vs AI");
         primaryStage.centerOnScreen();
@@ -51,7 +53,7 @@ public class ChessGame extends Application {
         primaryStage.show();
     }
 
-    private void startGame(Stage primaryStage) {
+    private void resetGame(boolean firstTime) {
         chessBoard = new GridPane();
         board = new Board();
         gameLogic = new GameLogic(board);
@@ -67,26 +69,40 @@ public class ChessGame extends Application {
 
         board.initializeBoard(chessBoard);
 
-        turnLabel = new Label("White's Turn");
-        turnLabel.setStyle("-fx-font-size: 16px;");
-
-        Button resetButton = new Button("Reset");
-        resetButton.setStyle("-fx-font-size: 14px; -fx-padding: 5 10;");
-        resetButton.setOnAction(e -> resetGame());
-
-        VBox root = new VBox(10, turnLabel, chessBoard, resetButton);
-        root.setAlignment(Pos.CENTER);
-
-        chessBoard.setOnMouseClicked(this::handleMouseClick);
-
-        Scene scene = new Scene(root, Board.getTileSize() * Board.getBoardSize(), Board.getTileSize() * Board.getBoardSize() + 60);
-        primaryStage.setScene(scene);
-        primaryStage.setResizable(true);
-        primaryStage.centerOnScreen();
-
+        selectedPiece = null;
+        isWhiteTurn = true;
         moveHistory.clear();
         moveNumber = 1;
         gameStartTime = LocalDateTime.now();
+        clearHighlights();
+
+        if (firstTime) {
+            turnLabel = new Label("White's Turn");
+            turnLabel.setStyle("-fx-font-size: 16px;");
+
+            Button resetButton = new Button("Reset");
+            resetButton.setStyle("-fx-font-size: 14px; -fx-padding: 5 10;");
+            resetButton.setOnAction(e -> resetGame(false));
+
+            root = new VBox(10, turnLabel, chessBoard, resetButton);
+            root.setAlignment(Pos.CENTER);
+
+            gameScene = new Scene(root, Board.getTileSize() * Board.getBoardSize(), Board.getTileSize() * Board.getBoardSize() + 60);
+            primaryStage.setScene(gameScene);
+        } else {
+            turnLabel.setText("White's Turn");
+            root.getChildren().removeIf(node -> node instanceof GridPane);
+            root.getChildren().add(1, chessBoard); // Thêm chessBoard vào vị trí thứ 2 (sau turnLabel, trước resetButton)
+            primaryStage.setScene(gameScene); // Quay lại gameScene
+        }
+
+        chessBoard.setOnMouseClicked(this::handleMouseClick);
+
+        primaryStage.centerOnScreen();
+    }
+
+    private void resetGame() {
+        resetGame(false);
     }
 
     public void showGameHistory(Scene previousScene) {
@@ -150,13 +166,15 @@ public class ChessGame extends Application {
             }
         } else {
             if (gameLogic.isValidMove(selectedPiece, selectedRow, selectedCol, row, col)) {
-                String whiteMove = "";
-                boolean isPawnPromotion = selectedPiece.getType().equals("pawn") && (row == 0);
+                String whiteMove = convertToChessNotation(selectedRow, selectedCol, row, col);
+                if (selectedPiece.getType().equals("king") && Math.abs(selectedCol - col) == 2) {
+                    whiteMove = (col > selectedCol) ? "O-O" : "O-O-O";
+                }
 
                 board.movePiece(selectedRow, selectedCol, row, col, chessBoard);
                 gameLogic.setLastMove(selectedRow, selectedCol, row, col);
 
-                if (isPawnPromotion) {
+                if (gameLogic.isPawnPromotion(selectedPiece, row)) {
                     String promotedPiece = showPromotionDialog(true);
                     String imagePath = "/pieces/75px_white_" + promotedPiece + ".png";
                     ChessPiece newPiece = new ChessPiece(promotedPiece, true, imagePath);
@@ -165,11 +183,6 @@ public class ChessGame extends Application {
                     chessBoard.getChildren().remove(selectedPiece.getImageView());
                     chessBoard.add(newPiece.getImageView(), col, row);
                     whiteMove = convertToChessNotation(selectedRow, selectedCol, row, col) + "=" + promotedPiece.substring(0, 1).toUpperCase();
-                } else {
-                    whiteMove = convertToChessNotation(selectedRow, selectedCol, row, col);
-                    if (selectedPiece.getType().equals("king") && Math.abs(selectedCol - col) == 2) {
-                        whiteMove = (col > selectedCol) ? "O-O" : "O-O-O";
-                    }
                 }
 
                 clearHighlights();
@@ -177,42 +190,47 @@ public class ChessGame extends Application {
                 turnLabel.setText("Black's Turn");
                 selectedPiece = null;
 
-                if (gameLogic.isGameOver(true)) {
-                    moveHistory.add(moveNumber + ". " + whiteMove);
-                    saveGameToDatabase("White");
-                    showLosePanel("Black");
-                    return;
+                if (gameLogic.isKingInCheck(false)) {
+                    System.out.println("Black king is in check!");
+                    if (gameLogic.isGameOver(true)) {
+                        moveHistory.add(moveNumber + ". " + whiteMove);
+                        saveGameToDatabase("White");
+                        showVictoryPanel("White");
+                        return;
+                    }
                 }
 
                 ai.makeMove(chessBoard);
                 int[] aiMove = ai.getLastMove();
-                String blackMove = "";
-                boolean isAIPawnPromotion = board.getPiece(aiMove[2], aiMove[3]).getType().equals("pawn") && (aiMove[2] == 7);
+                String blackMove = convertToChessNotation(aiMove[0], aiMove[1], aiMove[2], aiMove[3]);
+                ChessPiece aiPiece = board.getPiece(aiMove[2], aiMove[3]);
 
-                if (isAIPawnPromotion) {
+                if (gameLogic.isPawnPromotion(aiPiece, aiMove[2])) {
                     String promotedPiece = "queen";
                     String imagePath = "/pieces/75px_black_" + promotedPiece + ".png";
                     ChessPiece newPiece = new ChessPiece(promotedPiece, false, imagePath);
                     newPiece.setHasMoved(true);
                     board.setPiece(aiMove[2], aiMove[3], newPiece);
-                    chessBoard.getChildren().remove(board.getPiece(aiMove[2], aiMove[3]).getImageView());
+                    chessBoard.getChildren().remove(aiPiece.getImageView());
                     chessBoard.add(newPiece.getImageView(), aiMove[3], aiMove[2]);
                     blackMove = convertToChessNotation(aiMove[0], aiMove[1], aiMove[2], aiMove[3]) + "=" + promotedPiece.substring(0, 1).toUpperCase();
-                } else {
-                    blackMove = convertToChessNotation(aiMove[0], aiMove[1], aiMove[2], aiMove[3]);
-                    if (board.getPiece(aiMove[2], aiMove[3]).getType().equals("king") && Math.abs(aiMove[1] - aiMove[3]) == 2) {
-                        blackMove = (aiMove[3] > aiMove[1]) ? "O-O" : "O-O-O";
-                    }
+                } else if (aiPiece.getType().equals("king") && Math.abs(aiMove[1] - aiMove[3]) == 2) {
+                    blackMove = (aiMove[3] > aiMove[1]) ? "O-O" : "O-O-O";
                 }
 
                 gameLogic.setLastMove(aiMove[0], aiMove[1], aiMove[2], aiMove[3]);
                 moveHistory.add(moveNumber + ". " + whiteMove + " " + blackMove);
                 moveNumber++;
 
-                // Kiểm tra xem quân trắng có bị chiếu hết không
-                if (gameLogic.isGameOver(true)) {
-                    saveGameToDatabase("Black");
-                    showLosePanel("White");
+                if (gameLogic.isKingInCheck(true)) {
+                    System.out.println("White king is in check!");
+                    if (gameLogic.isGameOver(false)) {
+                        saveGameToDatabase("Black");
+                        showLosePanel("Black");
+                    } else {
+                        isWhiteTurn = true;
+                        turnLabel.setText("White's Turn");
+                    }
                 } else {
                     isWhiteTurn = true;
                     turnLabel.setText("White's Turn");
@@ -271,24 +289,11 @@ public class ChessGame extends Application {
 
     private String convertToChessNotation(int fromRow, int fromCol, int toRow, int toCol) {
         ChessPiece piece = board.getPiece(toRow, toCol);
-        if (piece == null) {
-            return "";
-        }
+        if (piece == null) return "";
         String pieceType = piece.getType();
         String pieceNotation = pieceType.equals("pawn") ? "" : pieceType.substring(0, 1).toUpperCase();
         String toFile = String.valueOf((char) ('a' + toCol));
         String toRank = String.valueOf(8 - toRow);
-
-        if (pieceType.equals("pawn") && Math.abs(fromCol - toCol) == 1 && board.getPiece(toRow, toCol) == null) {
-            int direction = piece.isWhite() ? -1 : 1;
-            if ((piece.isWhite() && fromRow == 3) || (!piece.isWhite() && fromRow == 4)) {
-                if (toRow == fromRow + direction) {
-                    String fromFile = String.valueOf((char) ('a' + fromCol));
-                    return fromFile + "x" + toFile + toRank + " e.p.";
-                }
-            }
-        }
-
         return pieceNotation + toFile + toRank;
     }
 
@@ -330,46 +335,22 @@ public class ChessGame extends Application {
         highlightedTiles.clear();
     }
 
-    private void resetGame() {
-        chessBoard.getChildren().clear();
-        for (int row = 0; row < Board.getBoardSize(); row++) {
-            for (int col = 0; col < Board.getBoardSize(); col++) {
-                Rectangle tile = new Rectangle(Board.getTileSize(), Board.getTileSize());
-                tile.setFill((row + col) % 2 == 0 ? Color.WHITE : Color.GRAY);
-                chessBoard.add(tile, col, row);
-            }
-        }
-
-        board = new Board();
-        gameLogic = new GameLogic(board);
-        ai = new AI(board, gameLogic);
-        board.initializeBoard(chessBoard);
-
-        selectedPiece = null;
-        isWhiteTurn = true;
-        turnLabel.setText("White's Turn");
-        clearHighlights();
-        chessBoard.setOnMouseClicked(this::handleMouseClick);
-        primaryStage.centerOnScreen();
-
-        moveHistory.clear();
-        moveNumber = 1;
-        gameStartTime = LocalDateTime.now();
-    }
-
     private void showVictoryPanel(String winner) {
-        VictoryPanel victoryPanel = new VictoryPanel(primaryStage, () -> startGame(primaryStage), this);
+        VictoryPanel victoryPanel = new VictoryPanel(primaryStage, () -> resetGame(), this);
         primaryStage.setScene(victoryPanel.createVictoryScene(winner));
     }
 
-    private void showLosePanel(String loser) {
-        LosePanel losePanel = new LosePanel(primaryStage, () -> startGame(primaryStage), this);
-        primaryStage.setScene(losePanel.createLoseScene(loser));
+    private void showLosePanel(String winner) {
+        LosePanel losePanel = new LosePanel(primaryStage, () -> resetGame(), this);
+        primaryStage.setScene(losePanel.createLoseScene(winner));
     }
 
     public String getLastMoveNotation() {
         if (moveHistory.isEmpty()) return "No moves";
         return moveHistory.get(moveHistory.size() - 1);
+    }
+    public Scene getGameScene() {
+        return gameScene;
     }
 
     public static void main(String[] args) {
