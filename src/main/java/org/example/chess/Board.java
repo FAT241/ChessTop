@@ -1,21 +1,26 @@
+//Quản lý trạng thái bàn cờ (8x8), bao gồm vị trí các quân cờ.
+//Khởi tạo bàn cờ với các quân cờ ở vị trí ban đầu.
+//Hỗ trợ di chuyển quân cờ, bao gồm các nước đi đặc biệt như nhập thành (castling) và bắt tốt qua đường (en passant).
 package org.example.chess;
 
+import javafx.animation.TranslateTransition;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.GridPane;
+import javafx.util.Duration;
 
 public class Board {
+    private static int TILE_SIZE = 80;
     private static final int BOARD_SIZE = 8;
-    private static final int TILE_SIZE = 80;
     private ChessPiece[][] board;
 
     public Board() {
         board = new ChessPiece[BOARD_SIZE][BOARD_SIZE];
     }
-
+/// Khởi tạo bàn cờ với các quân cờ ở vị trí ban đầu
     public void initializeBoard(GridPane chessBoard) {
         board = new ChessPiece[BOARD_SIZE][BOARD_SIZE];
 
-        // Quân trắng
+        // White pieces
         board[7][0] = new ChessPiece("rook", true, "/pieces/75px_white_rook.png");
         board[7][1] = new ChessPiece("knight", true, "/pieces/75px_white_knight.png");
         board[7][2] = new ChessPiece("bishop", true, "/pieces/75px_white_bishop.png");
@@ -28,7 +33,7 @@ public class Board {
             board[6][i] = new ChessPiece("pawn", true, "/pieces/75px_white_pawn.png");
         }
 
-        // Quân đen
+        // Black pieces
         board[0][0] = new ChessPiece("rook", false, "/pieces/75px_black_rook.png");
         board[0][1] = new ChessPiece("knight", false, "/pieces/75px_black_knight.png");
         board[0][2] = new ChessPiece("bishop", false, "/pieces/75px_black_bishop.png");
@@ -44,7 +49,10 @@ public class Board {
         for (int row = 0; row < BOARD_SIZE; row++) {
             for (int col = 0; col < BOARD_SIZE; col++) {
                 if (board[row][col] != null) {
-                    chessBoard.add(board[row][col].getImageView(), col, row);
+                    ImageView imageView = board[row][col].getImageView();
+                    imageView.setFitWidth(TILE_SIZE * 0.9);
+                    imageView.setFitHeight(TILE_SIZE * 0.9);
+                    chessBoard.add(imageView, col, row);
                 }
             }
         }
@@ -57,7 +65,7 @@ public class Board {
         ChessPiece targetPiece = board[toRow][toCol];
         if (targetPiece != null && targetPiece.isWhite() == piece.isWhite()) return;
 
-        // Xử lý nhập thành
+        // Handle castling(Nhap thanh)
         if (piece.getType().equals("king") && Math.abs(fromCol - toCol) == 2) {
             int rookFromCol = (toCol > fromCol) ? 7 : 0;
             int rookToCol = (toCol > fromCol) ? fromCol + 1 : fromCol - 1;
@@ -67,13 +75,16 @@ public class Board {
                 board[fromRow][rookToCol] = rook;
                 if (chessBoard != null) {
                     chessBoard.getChildren().remove(rook.getImageView());
-                    chessBoard.add(rook.getImageView(), rookToCol, fromRow);
+                    ImageView rookImage = rook.getImageView();
+                    rookImage.setFitWidth(TILE_SIZE * 0.9);
+                    rookImage.setFitHeight(TILE_SIZE * 0.9);
+                    chessBoard.add(rookImage, rookToCol, fromRow);
                 }
                 rook.setHasMoved(true);
             }
         }
 
-        // Xử lý bắt tốt qua đường
+        // Handle en passant (Bat tot qua duong)
         if (piece.getType().equals("pawn") && Math.abs(fromCol - toCol) == 1 && getPiece(toRow, toCol) == null) {
             int direction = piece.isWhite() ? -1 : 1;
             if ((piece.isWhite() && fromRow == 3) || (!piece.isWhite() && fromRow == 4)) {
@@ -96,12 +107,88 @@ public class Board {
                 chessBoard.getChildren().removeIf(node -> node instanceof ImageView &&
                         GridPane.getRowIndex(node) == toRow && GridPane.getColumnIndex(node) == toCol);
             }
-            piece.getImageView().setTranslateX(0);
-            piece.getImageView().setTranslateY(0);
-            chessBoard.add(piece.getImageView(), toCol, toRow);
+            ImageView pieceImage = piece.getImageView();
+            pieceImage.setTranslateX(0);
+            pieceImage.setTranslateY(0);
+            pieceImage.setFitWidth(TILE_SIZE * 0.9);
+            pieceImage.setFitHeight(TILE_SIZE * 0.9);
+            chessBoard.add(pieceImage, toCol, toRow);
         }
         board[toRow][toCol] = piece;
         piece.setHasMoved(true);
+    }
+
+    public void animateMove(int fromRow, int fromCol, int toRow, int toCol, GridPane chessBoard, Runnable onComplete) {
+        ChessPiece piece = board[fromRow][fromCol];
+        if (piece == null || chessBoard == null) {
+            if (onComplete != null) onComplete.run();
+            return;
+        }
+
+        ChessPiece targetPiece = board[toRow][toCol];
+        if (targetPiece != null && targetPiece.isWhite() == piece.isWhite()) {
+            if (onComplete != null) onComplete.run();
+            return;
+        }
+
+        // Handle castling
+        if (piece.getType().equals("king") && Math.abs(fromCol - toCol) == 2) {
+            int rookFromCol = (toCol > fromCol) ? 7 : 0;
+            int rookToCol = (toCol > fromCol) ? fromCol + 1 : fromCol - 1;
+            ChessPiece rook = board[fromRow][rookFromCol];
+            if (rook != null) {
+                TranslateTransition rookTransition = new TranslateTransition(Duration.millis(300), rook.getImageView());
+                rookTransition.setToX((rookToCol - rookFromCol) * TILE_SIZE);
+                rookTransition.setToY(0);
+                rookTransition.setOnFinished(e -> {
+                    chessBoard.getChildren().remove(rook.getImageView());
+                    rook.getImageView().setTranslateX(0);
+                    rook.getImageView().setTranslateY(0);
+                    chessBoard.add(rook.getImageView(), rookToCol, fromRow);
+                    board[fromRow][rookFromCol] = null;
+                    board[fromRow][rookToCol] = rook;
+                    rook.setHasMoved(true);
+                });
+                rookTransition.play();
+            }
+        }
+
+        // Handle en passant
+        if (piece.getType().equals("pawn") && Math.abs(fromCol - toCol) == 1 && getPiece(toRow, toCol) == null) {
+            int direction = piece.isWhite() ? -1 : 1;
+            if ((piece.isWhite() && fromRow == 3) || (!piece.isWhite() && fromRow == 4)) {
+                if (toRow == fromRow + direction) {
+                    ChessPiece capturedPawn = board[fromRow][toCol];
+                    if (capturedPawn != null) {
+                        board[fromRow][toCol] = null;
+                        chessBoard.getChildren().remove(capturedPawn.getImageView());
+                    }
+                }
+            }
+        }
+
+        // Animate main piece
+        ImageView pieceImage = piece.getImageView();
+        TranslateTransition transition = new TranslateTransition(Duration.millis(300), pieceImage);
+        transition.setToX((toCol - fromCol) * TILE_SIZE);
+        transition.setToY((toRow - fromRow) * TILE_SIZE);
+        transition.setOnFinished(e -> {
+            chessBoard.getChildren().remove(pieceImage);
+            pieceImage.setTranslateX(0);
+            pieceImage.setTranslateY(0);
+            if (targetPiece != null) {
+                chessBoard.getChildren().removeIf(node -> node instanceof ImageView &&
+                        GridPane.getRowIndex(node) == toRow && GridPane.getColumnIndex(node) == toCol);
+            }
+            pieceImage.setFitWidth(TILE_SIZE * 0.9);
+            pieceImage.setFitHeight(TILE_SIZE * 0.9);
+            chessBoard.add(pieceImage, toCol, toRow);
+            board[fromRow][fromCol] = null;
+            board[toRow][toCol] = piece;
+            piece.setHasMoved(true);
+            if (onComplete != null) onComplete.run();
+        });
+        transition.play();
     }
 
     public ChessPiece getPiece(int row, int col) {
@@ -115,6 +202,10 @@ public class Board {
         }
     }
 
+    public static void setTileSize(int size) {
+        TILE_SIZE = size;
+    }
+
     public static int getTileSize() {
         return TILE_SIZE;
     }
@@ -122,4 +213,5 @@ public class Board {
     public static int getBoardSize() {
         return BOARD_SIZE;
     }
+
 }

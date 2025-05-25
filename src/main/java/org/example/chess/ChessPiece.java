@@ -1,9 +1,9 @@
+//Theo dõi trạng thái hasMoved để hỗ trợ các luật như nhập thành hoặc di chuyển tốt hai ô.
 package org.example.chess;
 
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 
-// Lớp định nghĩa một quân cờ
 public class ChessPiece {
     private String type; // Loại quân cờ: pawn, rook, knight, bishop, queen, king
     private boolean isWhite; // Màu: true = trắng, false = đen
