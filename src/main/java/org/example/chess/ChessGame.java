@@ -51,10 +51,12 @@ public class ChessGame extends Application {
     private Scene gameScene;
     private UIPanel uiPanel;
     private String difficulty = "Medium";
-    private long whiteTime; // Thời gian của trắng (giây)
-    private long blackTime; // Thời gian của đen (giây)
+    private long whiteTime;
+    private long blackTime;
     private Timeline timer;
     private String timeLimit;
+    private int timeIncrement = 0;
+    private String gameMode = "Standard";
 
     private static class GameRecord {
         private final SimpleIntegerProperty gameId;
@@ -65,8 +67,9 @@ public class ChessGame extends Application {
         private final SimpleIntegerProperty duration;
         private final SimpleStringProperty pgn;
         private final SimpleStringProperty timeLimit;
+        private final SimpleStringProperty gameMode;
 
-        public GameRecord(int gameId, String winner, String difficulty, String playedDate, int moveCount, int duration, String pgn, String timeLimit) {
+        public GameRecord(int gameId, String winner, String difficulty, String playedDate, int moveCount, int duration, String pgn, String timeLimit, String gameMode) {
             this.gameId = new SimpleIntegerProperty(gameId);
             this.winner = new SimpleStringProperty(winner.equals("White") ? "Trắng" : winner.equals("Black") ? "Đen" : winner);
             this.difficulty = new SimpleStringProperty(difficulty != null ? difficulty : "Không xác định");
@@ -75,6 +78,7 @@ public class ChessGame extends Application {
             this.duration = new SimpleIntegerProperty(duration);
             this.pgn = new SimpleStringProperty(pgn);
             this.timeLimit = new SimpleStringProperty(timeLimit != null ? timeLimit : "Không giới hạn");
+            this.gameMode = new SimpleStringProperty(gameMode != null ? (gameMode.equals("Blitz") ? "Cờ chớp" : "Tiêu chuẩn") : "Tiêu chuẩn");
         }
 
         public SimpleIntegerProperty gameIdProperty() { return gameId; }
@@ -85,6 +89,7 @@ public class ChessGame extends Application {
         public SimpleIntegerProperty durationProperty() { return duration; }
         public SimpleStringProperty pgnProperty() { return pgn; }
         public SimpleStringProperty timeLimitProperty() { return timeLimit; }
+        public SimpleStringProperty gameModeProperty() { return gameMode; }
     }
 
     @Override
@@ -101,7 +106,8 @@ public class ChessGame extends Application {
     public void setDifficulty(String difficulty) {
         this.difficulty = difficulty;
         if (ai != null) {
-            ai = new AI(board, gameLogic, difficulty);
+            ai.setDifficulty(difficulty);
+            ai.setGameMode(gameMode);
         }
     }
 
@@ -110,10 +116,24 @@ public class ChessGame extends Application {
         if (timeLimit.equals("Không giới hạn")) {
             whiteTime = 0;
             blackTime = 0;
+            timeIncrement = 0;
         } else {
-            int minutes = Integer.parseInt(timeLimit.split(" ")[0]);
+            String[] parts = timeLimit.split(" \\+ ");
+            int minutes = Integer.parseInt(parts[0].split(" ")[0]);
             whiteTime = blackTime = minutes * 60;
+            timeIncrement = parts.length > 1 ? Integer.parseInt(parts[1].split(" ")[0]) : 0;
         }
+    }
+
+    public void setGameMode(String gameMode) {
+        this.gameMode = gameMode;
+        if (ai != null) {
+            ai.setGameMode(gameMode);
+        }
+    }
+
+    public String getGameMode() {
+        return gameMode;
     }
 
     private void resetGame(boolean firstTime) {
@@ -121,6 +141,7 @@ public class ChessGame extends Application {
         board = new Board();
         gameLogic = new GameLogic(board);
         ai = new AI(board, gameLogic, difficulty);
+        ai.setGameMode(gameMode);
 
         for (int row = 0; row < Board.getBoardSize(); row++) {
             for (int col = 0; col < Board.getBoardSize(); col++) {
@@ -137,11 +158,10 @@ public class ChessGame extends Application {
         moveHistory.clear();
         moveNumber = 1;
         gameStartTime = LocalDateTime.now();
-        gameLogic.reset(); // Reset trạng thái hòa cờ
-        setTimeLimit(timeLimit); // Reset thời gian
+        gameLogic.reset();
+        setTimeLimit(timeLimit);
         clearHighlights();
 
-        // Khởi tạo các label nếu chưa có
         if (whiteTimeLabel == null) {
             whiteTimeLabel = new Label("White: --:--");
             whiteTimeLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: white; -fx-background-color: #333333; -fx-padding: 5 10; -fx-border-color: #FFD700; -fx-border-width: 2; -fx-border-radius: 5;");
@@ -238,9 +258,9 @@ public class ChessGame extends Application {
         titleLabel.setEffect(new DropShadow(10, Color.GRAY));
 
         ComboBox<String> filterBox = new ComboBox<>();
-        filterBox.getItems().addAll("Tất cả", "Trắng", "Đen", "Easy", "Medium", "Hard");
+        filterBox.getItems().addAll("Tất cả", "Trắng", "Đen", "Easy", "Medium", "Hard", "Tiêu chuẩn", "Cờ chớp");
         filterBox.setValue("Tất cả");
-        filterBox.setStyle("-fx-font-size: 14px; -fx-background-color: #FFFFFF; -fx-border-color: #B0BEC5; -fx-border-width: 1; -fx-border-radius: 5;");
+        filterBox.setStyle("-fx-font-size: 14px; -fx-background-color: #FFFFFF; -fx-border-color: #B0BEC5; -fx-border-radius: 5;");
 
         TableView<GameRecord> historyTable = new TableView<>();
         historyTable.setPrefWidth(800);
@@ -277,21 +297,26 @@ public class ChessGame extends Application {
         durationColumn.setPrefWidth(100);
         durationColumn.setStyle("-fx-alignment: CENTER; -fx-background-color: #0288D1; -fx-text-fill: white;");
 
-        TableColumn<GameRecord, String> pgnColumn = new TableColumn<>("PGN");
-        pgnColumn.setCellValueFactory(cellData -> cellData.getValue().pgnProperty());
-        pgnColumn.setPrefWidth(150);
-        pgnColumn.setStyle("-fx-alignment: CENTER-LEFT; -fx-background-color: #0288D1; -fx-text-fill: white;");
-
         TableColumn<GameRecord, String> timeLimitColumn = new TableColumn<>("Thời gian giới hạn");
         timeLimitColumn.setCellValueFactory(cellData -> cellData.getValue().timeLimitProperty());
         timeLimitColumn.setPrefWidth(100);
         timeLimitColumn.setStyle("-fx-alignment: CENTER; -fx-background-color: #0288D1; -fx-text-fill: white;");
 
-        historyTable.getColumns().addAll(gameIdColumn, winnerColumn, difficultyColumn, dateColumn, moveCountColumn, durationColumn, timeLimitColumn, pgnColumn);
+        TableColumn<GameRecord, String> gameModeColumn = new TableColumn<>("Chế độ");
+        gameModeColumn.setCellValueFactory(cellData -> cellData.getValue().gameModeProperty());
+        gameModeColumn.setPrefWidth(100);
+        gameModeColumn.setStyle("-fx-alignment: CENTER; -fx-background-color: #0288D1; -fx-text-fill: white;");
+
+        TableColumn<GameRecord, String> pgnColumn = new TableColumn<>("PGN");
+        pgnColumn.setCellValueFactory(cellData -> cellData.getValue().pgnProperty());
+        pgnColumn.setPrefWidth(150);
+        pgnColumn.setStyle("-fx-alignment: CENTER-LEFT; -fx-background-color: #0288D1; -fx-text-fill: white;");
+
+        historyTable.getColumns().addAll(gameIdColumn, winnerColumn, difficultyColumn, dateColumn, moveCountColumn, durationColumn, timeLimitColumn, gameModeColumn, pgnColumn);
 
         ObservableList<GameRecord> gameRecords = FXCollections.observableArrayList();
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement("SELECT game_id, winner, played_date, pgn, move_count, duration, difficulty, time_limit FROM games ORDER BY played_date DESC")) {
+             PreparedStatement pstmt = conn.prepareStatement("SELECT game_id, winner, played_date, pgn, move_count, duration, difficulty, time_limit, game_mode FROM games ORDER BY played_date DESC")) {
             ResultSet rs = pstmt.executeQuery();
             while (rs.next()) {
                 int gameId = rs.getInt("game_id");
@@ -302,13 +327,14 @@ public class ChessGame extends Application {
                 int duration = rs.getInt("duration");
                 String difficulty = rs.getString("difficulty");
                 String timeLimit = rs.getString("time_limit");
-                gameRecords.add(new GameRecord(gameId, winner, difficulty, playedDate, moveCount, duration, pgn, timeLimit));
+                String gameMode = rs.getString("game_mode");
+                gameRecords.add(new GameRecord(gameId, winner, difficulty, playedDate, moveCount, duration, pgn, timeLimit, gameMode));
             }
         } catch (SQLException e) {
             Alert alert = new Alert(Alert.AlertType.ERROR);
             alert.setTitle("Lỗi tải lịch sử");
             alert.setHeaderText("Không thể tải lịch sử trận đấu");
-            alert.setContentText("Lỗi: " + e.getMessage() + "\nSQL State: " + e.getSQLState() + "\nError Code: " + e.getErrorCode());
+            alert.setContentText("Lỗi: " + e.getMessage());
             alert.showAndWait();
         }
 
@@ -318,7 +344,8 @@ public class ChessGame extends Application {
             for (GameRecord record : gameRecords) {
                 if (filter.equals("Tất cả") ||
                         record.winnerProperty().get().equals(filter) ||
-                        record.difficultyProperty().get().equals(filter)) {
+                        record.difficultyProperty().get().equals(filter) ||
+                        record.gameModeProperty().get().equals(filter)) {
                     filteredRecords.add(record);
                 }
             }
@@ -375,7 +402,29 @@ public class ChessGame extends Application {
             }
         });
 
-        HBox buttonBox = new HBox(10, backButton, clearButton);
+        Button deleteButton = new Button("Xóa");
+        deleteButton.setStyle("-fx-font-size: 14px; -fx-padding: 10 20; -fx-background-color: #D32F2F; -fx-text-fill: white; -fx-background-radius: 5; -fx-cursor: hand;");
+        deleteButton.setEffect(new DropShadow(5, Color.GRAY));
+        deleteButton.setOnMouseEntered(e -> deleteButton.setStyle("-fx-font-size: 14px; -fx-padding: 10 20; -fx-background-color: #C62828; -fx-text-fill: white; -fx-background-radius: 5; -fx-cursor: hand;"));
+        deleteButton.setOnMouseExited(e -> deleteButton.setStyle("-fx-font-size: 14px; -fx-padding: 10 20; -fx-background-color: #D32F2F; -fx-text-fill: white; -fx-background-radius: 5; -fx-cursor: hand;"));
+        deleteButton.setOnAction(e -> {
+            GameRecord selectedGame = historyTable.getSelectionModel().getSelectedItem();
+            if (selectedGame == null) {
+                Alert alert = new Alert(Alert.AlertType.WARNING);
+                alert.setTitle("Chưa chọn ván đấu");
+                alert.setHeaderText(null);
+                alert.setContentText("Vui lòng chọn một ván đấu để xóa.");
+                alert.showAndWait();
+            } else {
+                Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+                        "Bạn có chắc muốn xóa ván đấu #" + selectedGame.gameIdProperty().get() + "?");
+                if (confirm.showAndWait().get() == ButtonType.OK) {
+                    deleteSingleGame(selectedGame.gameIdProperty().get(), gameRecords, historyTable);
+                }
+            }
+        });
+
+        HBox buttonBox = new HBox(10, backButton, deleteButton, clearButton);
         buttonBox.setAlignment(Pos.CENTER);
 
         historyLayout.getChildren().addAll(titleLabel, filterBox, historyTable, buttonBox);
@@ -383,6 +432,24 @@ public class ChessGame extends Application {
         Scene historyScene = new Scene(historyLayout, 900, 650);
         primaryStage.setScene(historyScene);
         primaryStage.centerOnScreen();
+    }
+
+    private void deleteSingleGame(int gameId, ObservableList<GameRecord> gameRecords, TableView<GameRecord> historyTable) {
+        String sql = "DELETE FROM games WHERE game_id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, gameId);
+            pstmt.executeUpdate();
+
+            gameRecords.removeIf(record -> record.gameIdProperty().get() == gameId);
+            historyTable.refresh();
+        } catch (SQLException e) {
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Lỗi xóa ván đấu");
+            alert.setHeaderText("Không thể xóa ván đấu");
+            alert.setContentText("Lỗi: " + e.getMessage());
+            alert.showAndWait();
+        }
     }
 
     private void showPgnDetail(String pgn) {
@@ -425,7 +492,7 @@ public class ChessGame extends Application {
         int col = (int) (event.getX() / Board.getTileSize());
         int row = (int) (event.getY() / Board.getTileSize());
 
-        if (row < 0 || row >= Board.getBoardSize() || col < 0 || col >= Board.getBoardSize()) return;
+        if (row < 0 || row >= Board.getBoardSize() || col < 0 || col < Board.getBoardSize()) return;
 
         if (selectedPiece == null) {
             ChessPiece piece = board.getPiece(row, col);
@@ -455,6 +522,9 @@ public class ChessGame extends Application {
                     chessBoard.add(newPiece.getImageView(), col, row);
                     whiteMove = convertToChessNotation(selectedRow, selectedCol, row, col) + "=" + promotedPiece.substring(0, 1).toUpperCase();
                 }
+
+                whiteTime += timeIncrement;
+                updateTimeLabels();
 
                 clearHighlights();
                 isWhiteTurn = false;
@@ -496,6 +566,9 @@ public class ChessGame extends Application {
                     blackMove = (aiMove[3] > aiMove[1]) ? "O-O" : "O-O-O";
                 }
 
+                blackTime += timeIncrement;
+                updateTimeLabels();
+
                 gameLogic.setLastMove(aiMove[0], aiMove[1], aiMove[2], aiMove[3]);
                 moveHistory.add(moveNumber + ". " + whiteMove + " " + blackMove);
                 moveNumber++;
@@ -530,7 +603,7 @@ public class ChessGame extends Application {
         dialog.initOwner(primaryStage);
         dialog.setTitle("Pawn Promotion");
 
-        Label label = new Label("Choose chess to be promoted:");
+        Label label = new Label("Choose piece to promote to:");
         label.setStyle("-fx-font-size: 14px;");
 
         Button queenButton = new Button("Queen");
@@ -583,22 +656,7 @@ public class ChessGame extends Application {
         String pgn = String.join(" ", moveHistory);
         int moveCount = moveHistory.size();
         long duration = ChronoUnit.SECONDS.between(gameStartTime, LocalDateTime.now());
-        String sql = "INSERT INTO games (winner, pgn, move_count, duration, difficulty, time_limit) VALUES (?, ?, ?, ?, ?, ?)";
-
-        // Kiểm tra giá trị đầu vào
-        System.out.println("Saving game: Winner=" + winner + ", PGN=" + pgn + ", MoveCount=" + moveCount +
-                ", Duration=" + duration + ", Difficulty=" + difficulty + ", TimeLimit=" + timeLimit);
-
-        if (winner == null || pgn == null || difficulty == null || timeLimit == null) {
-            System.err.println("Error: One of the required fields is null.");
-            Alert alert = new Alert(Alert.AlertType.ERROR);
-            alert.setTitle("Lỗi lưu lịch sử");
-            alert.setHeaderText("Không thể lưu lịch sử ván đấu");
-            alert.setContentText("Một trong các giá trị đầu vào bị null: Winner=" + winner +
-                    ", PGN=" + pgn + ", Difficulty=" + difficulty + ", TimeLimit=" + timeLimit);
-            alert.showAndWait();
-            return;
-        }
+        String sql = "INSERT INTO games (winner, pgn, move_count, duration, difficulty, time_limit, game_mode) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -608,16 +666,13 @@ public class ChessGame extends Application {
             pstmt.setLong(4, duration);
             pstmt.setString(5, difficulty);
             pstmt.setString(6, timeLimit);
+            pstmt.setString(7, gameMode);
             pstmt.executeUpdate();
-            System.out.println("History is saved! Game ID should be: " + (moveCount + 1));
         } catch (SQLException e) {
-            System.err.println("Save History Error: " + e.getMessage());
-            System.err.println("SQL State: " + e.getSQLState());
-            System.err.println("Error Code: " + e.getErrorCode());
             Alert alert = new Alert(Alert.AlertType.ERROR);
             alert.setTitle("Lỗi lưu lịch sử");
             alert.setHeaderText("Không thể lưu lịch sử ván đấu");
-            alert.setContentText("Lỗi: " + e.getMessage() + "\nSQL State: " + e.getSQLState() + "\nError Code: " + e.getErrorCode());
+            alert.setContentText("Lỗi: " + e.getMessage());
             alert.showAndWait();
         }
     }
