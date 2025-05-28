@@ -164,17 +164,17 @@ public class ChessGame extends Application {
 
         if (whiteTimeLabel == null) {
             whiteTimeLabel = new Label("White: --:--");
-            whiteTimeLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: white; -fx-background-color: #333333; -fx-padding: 5 10; -fx-border-color: #FFD700; -fx-border-width: 2; -fx-border-radius: 5;");
+            whiteTimeLabel.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: white; -fx-background-color: #333333; -fx-padding: 5 10; -fx-border-color: #FFD700; -fx-border-width: 2; -fx-border-radius: 5;");
             whiteTimeLabel.setEffect(new DropShadow(3, Color.BLACK));
         }
         if (blackTimeLabel == null) {
             blackTimeLabel = new Label("Black: --:--");
-            blackTimeLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: white; -fx-background-color: #333333; -fx-padding: 5 10; -fx-border-color: #FFD700; -fx-border-width: 2; -fx-border-radius: 5;");
+            blackTimeLabel.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: white; -fx-background-color: #333333; -fx-padding: 5 10; -fx-border-color: #FFD700; -fx-border-width: 2; -fx-border-radius: 5;");
             blackTimeLabel.setEffect(new DropShadow(3, Color.BLACK));
         }
         if (turnLabel == null) {
             turnLabel = new Label("White's Turn");
-            turnLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: white;");
+            turnLabel.setStyle("-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: black;");
         }
 
         if (timer != null) {
@@ -212,18 +212,18 @@ public class ChessGame extends Application {
         HBox timeBox = new HBox(20, whiteTimeLabel, blackTimeLabel);
         timeBox.setAlignment(Pos.CENTER);
 
-        root = new VBox(10, turnLabel, timeBox, chessBoard);
+        root = new VBox(chessBoard);
         root.setAlignment(Pos.CENTER);
         root.setPadding(new Insets(10));
 
         if (firstTime) {
-            uiPanel.updateGameLayout(root, chessBoard);
+            uiPanel.updateGameLayout(root, chessBoard, turnLabel, timeBox);
         } else {
             turnLabel.setText("White's Turn");
             updateTimeLabels();
             root.getChildren().clear();
-            root.getChildren().addAll(turnLabel, timeBox, chessBoard);
-            uiPanel.updateGameLayout(root, chessBoard);
+            root.getChildren().add(chessBoard);
+            uiPanel.updateGameLayout(root, chessBoard, turnLabel, timeBox);
         }
 
         chessBoard.setOnMouseClicked(this::handleMouseClick);
@@ -429,7 +429,7 @@ public class ChessGame extends Application {
 
         historyLayout.getChildren().addAll(titleLabel, filterBox, historyTable, buttonBox);
 
-        Scene historyScene = new Scene(historyLayout, 900, 650);
+        Scene historyScene = new Scene(historyLayout, 1200, 800);
         primaryStage.setScene(historyScene);
         primaryStage.centerOnScreen();
     }
@@ -481,7 +481,7 @@ public class ChessGame extends Application {
 
         pgnLayout.getChildren().addAll(titleLabel, new ScrollPane(pgnText), closeButton);
 
-        Scene pgnScene = new Scene(pgnLayout, 600, 400);
+        Scene pgnScene = new Scene(pgnLayout, 800, 500);
         pgnStage.setScene(pgnScene);
         pgnStage.showAndWait();
     }
@@ -492,7 +492,7 @@ public class ChessGame extends Application {
         int col = (int) (event.getX() / Board.getTileSize());
         int row = (int) (event.getY() / Board.getTileSize());
 
-        if (row < 0 || row >= Board.getBoardSize() || col < 0 || col < Board.getBoardSize()) return;
+        if (row < 0 || row >= Board.getBoardSize() || col < 0 || col >= Board.getBoardSize()) return;
 
         if (selectedPiece == null) {
             ChessPiece piece = board.getPiece(row, col);
@@ -719,6 +719,22 @@ public class ChessGame extends Application {
 
     public Board getBoard() {
         return board;
+    }
+
+    public List<String> getMoveHistory() {
+        return moveHistory;
+    }
+
+    public LocalDateTime getGameStartTime() {
+        return gameStartTime;
+    }
+
+    public String getDifficulty() {
+        return difficulty;
+    }
+
+    public String getTimeLimit() {
+        return timeLimit;
     }
 
     public static void main(String[] args) {

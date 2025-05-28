@@ -1,6 +1,3 @@
-//Quản lý trạng thái bàn cờ (8x8), bao gồm vị trí các quân cờ.
-//Khởi tạo bàn cờ với các quân cờ ở vị trí ban đầu.
-//Hỗ trợ di chuyển quân cờ, bao gồm các nước đi đặc biệt như nhập thành (castling) và bắt tốt qua đường (en passant).
 package org.example.chess;
 
 import javafx.animation.TranslateTransition;
@@ -16,7 +13,7 @@ public class Board {
     public Board() {
         board = new ChessPiece[BOARD_SIZE][BOARD_SIZE];
     }
-/// Khởi tạo bàn cờ với các quân cờ ở vị trí ban đầu
+
     public void initializeBoard(GridPane chessBoard) {
         board = new ChessPiece[BOARD_SIZE][BOARD_SIZE];
 
@@ -65,7 +62,6 @@ public class Board {
         ChessPiece targetPiece = board[toRow][toCol];
         if (targetPiece != null && targetPiece.isWhite() == piece.isWhite()) return;
 
-        // Handle castling(Nhap thanh)
         if (piece.getType().equals("king") && Math.abs(fromCol - toCol) == 2) {
             int rookFromCol = (toCol > fromCol) ? 7 : 0;
             int rookToCol = (toCol > fromCol) ? fromCol + 1 : fromCol - 1;
@@ -84,7 +80,6 @@ public class Board {
             }
         }
 
-        // Handle en passant (Bat tot qua duong)
         if (piece.getType().equals("pawn") && Math.abs(fromCol - toCol) == 1 && getPiece(toRow, toCol) == null) {
             int direction = piece.isWhite() ? -1 : 1;
             if ((piece.isWhite() && fromRow == 3) || (!piece.isWhite() && fromRow == 4)) {
@@ -131,13 +126,12 @@ public class Board {
             return;
         }
 
-        // Handle castling
         if (piece.getType().equals("king") && Math.abs(fromCol - toCol) == 2) {
             int rookFromCol = (toCol > fromCol) ? 7 : 0;
             int rookToCol = (toCol > fromCol) ? fromCol + 1 : fromCol - 1;
             ChessPiece rook = board[fromRow][rookFromCol];
             if (rook != null) {
-                TranslateTransition rookTransition = new TranslateTransition(Duration.millis(300), rook.getImageView());
+                TranslateTransition rookTransition = new TranslateTransition(Duration.millis(150), rook.getImageView());
                 rookTransition.setToX((rookToCol - rookFromCol) * TILE_SIZE);
                 rookTransition.setToY(0);
                 rookTransition.setOnFinished(e -> {
@@ -153,7 +147,6 @@ public class Board {
             }
         }
 
-        // Handle en passant
         if (piece.getType().equals("pawn") && Math.abs(fromCol - toCol) == 1 && getPiece(toRow, toCol) == null) {
             int direction = piece.isWhite() ? -1 : 1;
             if ((piece.isWhite() && fromRow == 3) || (!piece.isWhite() && fromRow == 4)) {
@@ -167,9 +160,8 @@ public class Board {
             }
         }
 
-        // Animate main piece
         ImageView pieceImage = piece.getImageView();
-        TranslateTransition transition = new TranslateTransition(Duration.millis(300), pieceImage);
+        TranslateTransition transition = new TranslateTransition(Duration.millis(150), pieceImage);
         transition.setToX((toCol - fromCol) * TILE_SIZE);
         transition.setToY((toRow - fromRow) * TILE_SIZE);
         transition.setOnFinished(e -> {
@@ -213,5 +205,4 @@ public class Board {
     public static int getBoardSize() {
         return BOARD_SIZE;
     }
-
 }

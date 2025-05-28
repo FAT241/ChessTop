@@ -54,6 +54,8 @@
   </dependencies>
 
   <build>
+    <finalName>${project.artifactId}-${project.version}</finalName>
+
     <resources>
       <resource>
         <directory>src/main/resources</directory>
@@ -62,7 +64,10 @@
         </includes>
       </resource>
     </resources>
+
     <plugins>
+
+      <!-- Compiler plugin -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
@@ -73,6 +78,41 @@
         </configuration>
       </plugin>
 
+      <!-- Maven Assembly Plugin (tạo jar với dependencies) -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-assembly-plugin</artifactId>
+        <version>3.3.0</version>
+        <configuration>
+          <descriptorRefs>
+            <descriptorRef>jar-with-dependencies</descriptorRef>
+          </descriptorRefs>
+        </configuration>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>single</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- Maven Jar Plugin -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.2.0</version>
+        <configuration>
+          <archive>
+            <manifest>
+              <mainClass>org.example.chess.ChessGame</mainClass>
+            </manifest>
+          </archive>
+        </configuration>
+      </plugin>
+
+      <!-- JavaFX Maven Plugin -->
       <plugin>
         <groupId>org.openjfx</groupId>
         <artifactId>javafx-maven-plugin</artifactId>
@@ -82,16 +122,53 @@
             <id>default-cli</id>
             <configuration>
               <mainClass>org.example.chess.ChessGame</mainClass>
-              <launcher>chess</launcher>
-              <jlinkZipName>chess</jlinkZipName>
-              <jlinkImageName>chess</jlinkImageName>
+              <launcher>chess</launcher> <!-- Windows sẽ tự tạo chess.exe -->
+              <jlinkZipName>chess-runtime.zip</jlinkZipName>
+              <jlinkImageName>chess-runtime</jlinkImageName>
               <noManPages>true</noManPages>
               <stripDebug>true</stripDebug>
               <noHeaderFiles>true</noHeaderFiles>
+              <addModules>
+                java.base,java.desktop,java.logging,java.sql,java.naming,
+                javafx.controls,javafx.fxml,javafx.graphics,
+                javafx.media,javafx.web
+              </addModules>
             </configuration>
           </execution>
         </executions>
       </plugin>
+
+      <!-- Launch4j Maven Plugin -->
+      <plugin>
+        <groupId>com.akathist.maven.plugins.launch4j</groupId>
+        <artifactId>launch4j-maven-plugin</artifactId>
+        <version>2.1.1</version>
+        <executions>
+          <execution>
+            <phase>verify</phase>
+            <goals>
+              <goal>launch4j</goal>
+            </goals>
+            <configuration>
+              <headerType>gui</headerType>
+              <outfile>target/${project.artifactId}.exe</outfile>
+              <jar>target/${project.artifactId}-${project.version}-jar-with-dependencies.jar</jar>
+              <jre>
+                <minVersion>24</minVersion>
+                <jdkPreference>preferJre</jdkPreference>
+                <runtimeBits>64</runtimeBits>
+              </jre>
+              <errTitle>Chess Game Error</errTitle>
+              <cmdLine></cmdLine>
+              <dontWrapJar>false</dontWrapJar>
+              <stayAlive>false</stayAlive>
+              <downloadUrl>https://adoptium.net/releases.html?variant=openjdk24</downloadUrl>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
     </plugins>
   </build>
+
 </project>

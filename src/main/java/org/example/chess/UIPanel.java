@@ -16,19 +16,19 @@ public class UIPanel {
     private Runnable startGameCallback;
     private ChessGame chessGame;
     private TextArea moveList;
-    private static final double MIN_TILE_SIZE = 60;
-    private static final double MAX_TILE_SIZE = 100;
-    private String difficulty = "Medium";
+    private static final double MIN_TILE_SIZE = 50; // Giảm để bàn cờ nhỏ hơn
+    private static final double MAX_TILE_SIZE = 110; // Tăng để bàn cờ lớn hơn
+    private String difficulty = "Easy"; // Mặc định là Dễ
     private String timeLimit = "Không giới hạn";
-    private String gameMode = "Standard"; // Chế độ mặc định
+    private String gameMode = "Standard";
     private Label difficultyLabel;
     private Label timeLimitLabel;
     private Label gameModeLabel;
     private Button easyButton, mediumButton, hardButton;
     private ComboBox<String> timeLimitBox;
 
-    private static final double SCENE_WIDTH = 900;
-    private static final double SCENE_HEIGHT = 650;
+    private static final double SCENE_WIDTH = 1000; // Tăng kích thước khung hình
+    private static final double SCENE_HEIGHT = 750;
 
     public UIPanel(Stage primaryStage, Runnable startGameCallback, ChessGame chessGame) {
         this.primaryStage = primaryStage;
@@ -112,9 +112,8 @@ public class UIPanel {
         titleLabel.setStyle("-fx-font-size: 36px; -fx-font-weight: bold; -fx-text-fill: #FFFFFF; -fx-font-family: 'Arial';");
         titleLabel.setEffect(new DropShadow(10, Color.BLACK));
 
-        // Chọn chế độ chơi
         gameModeLabel = new Label("Chế độ: Tiêu chuẩn");
-        gameModeLabel.setStyle("-fx-font-size: 20px; -fx-text-fill: #FFFFFF; -fx-font-weight: bold;");
+        gameModeLabel.setStyle("-fx-font-size: 24px; -fx-text-fill: #FFFFFF; -fx-font-weight: bold;");
 
         ComboBox<String> gameModeBox = new ComboBox<>();
         gameModeBox.getItems().addAll("Tiêu chuẩn", "Cờ chớp");
@@ -127,9 +126,8 @@ public class UIPanel {
             updateTimeLimitOptions();
         });
 
-        // Chọn độ khó
         difficultyLabel = new Label("Độ khó: Trung bình");
-        difficultyLabel.setStyle("-fx-font-size: 20px; -fx-text-fill: #FFFFFF; -fx-font-weight: bold;");
+        difficultyLabel.setStyle("-fx-font-size: 24px; -fx-text-fill: #FFFFFF; -fx-font-weight: bold;");
 
         easyButton = new Button("Dễ");
         easyButton.setStyle("-fx-font-size: 18px; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 10 20; -fx-background-radius: 5; -fx-font-weight: bold;");
@@ -149,12 +147,11 @@ public class UIPanel {
         HBox difficultyBox = new HBox(15, easyButton, mediumButton, hardButton);
         difficultyBox.setAlignment(Pos.CENTER);
 
-        // Chọn thời gian
         timeLimitLabel = new Label("Thời gian: Không giới hạn");
-        timeLimitLabel.setStyle("-fx-font-size: 20px; -fx-text-fill: #FFFFFF; -fx-font-weight: bold;");
+        timeLimitLabel.setStyle("-fx-font-size: 24px; -fx-text-fill: #FFFFFF; -fx-font-weight: bold;");
 
         timeLimitBox = new ComboBox<>();
-        updateTimeLimitOptions(); // Khởi tạo tùy chọn thời gian
+        updateTimeLimitOptions();
         timeLimitBox.setStyle("-fx-font-size: 16px; -fx-background-color: #FFFFFF; -fx-border-color: #B0BEC5; -fx-border-radius: 5; -fx-padding: 5;");
         timeLimitBox.setPrefWidth(200);
         timeLimitBox.setOnAction(e -> {
@@ -162,7 +159,6 @@ public class UIPanel {
             timeLimitLabel.setText("Thời gian: " + timeLimit);
         });
 
-        // Nút Bắt đầu
         Button startButton = new Button("Bắt đầu");
         startButton.setStyle("-fx-font-size: 24px; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 15 40; -fx-background-radius: 10; -fx-font-weight: bold;");
         startButton.setEffect(new DropShadow(5, Color.GRAY));
@@ -177,7 +173,6 @@ public class UIPanel {
             primaryStage.centerOnScreen();
         });
 
-        // Nút Quay lại
         Button backButton = new Button("Quay lại");
         backButton.setStyle("-fx-font-size: 24px; -fx-background-color: #2196F3; -fx-text-fill: white; -fx-padding: 15 40; -fx-background-radius: 10; -fx-font-weight: bold;");
         backButton.setEffect(new DropShadow(5, Color.GRAY));
@@ -189,7 +184,6 @@ public class UIPanel {
         buttonBox.setAlignment(Pos.CENTER);
 
         layout.getChildren().addAll(titleLabel, gameModeLabel, gameModeBox, difficultyLabel, difficultyBox, timeLimitLabel, timeLimitBox, buttonBox);
-
         Scene scene = new Scene(layout, SCENE_WIDTH, SCENE_HEIGHT);
         primaryStage.setResizable(true);
         return scene;
@@ -236,17 +230,17 @@ public class UIPanel {
         };
     }
 
-    public void updateGameLayout(VBox root, GridPane chessBoard) {
+    public void updateGameLayout(VBox root, GridPane chessBoard, Label turnLabel, HBox timeBox) {
         moveList = new TextArea();
         moveList.setEditable(false);
-        moveList.setPrefWidth(200);
-        moveList.setPrefHeight(400);
+        moveList.setPrefWidth(250);
+        moveList.setPrefHeight(500);
         moveList.setStyle("-fx-font-size: 14px; -fx-background-color: #F5F5F5; -fx-border-color: #CCCCCC; -fx-border-width: 1; -fx-font-family: 'Arial';");
         moveList.setText("Danh sách nước đi:\n");
 
         ScrollPane moveListScroll = new ScrollPane(moveList);
         moveListScroll.setFitToWidth(true);
-        moveListScroll.setPrefWidth(220);
+        moveListScroll.setPrefWidth(270);
         moveListScroll.setStyle("-fx-background-color: transparent;");
 
         Button resetButton = new Button("Reset");
@@ -269,18 +263,28 @@ public class UIPanel {
         VBox rightPanel = new VBox(10, moveListScroll, buttonBox);
         rightPanel.setAlignment(Pos.CENTER);
 
-        HBox gameLayout = new HBox(10);
+        // Tạo topPanel để chứa turnLabel và timeBox
+        VBox topPanel = new VBox(2, turnLabel, timeBox); // Giữ spacing 10 giữa turnLabel và timeBox
+        topPanel.setAlignment(Pos.CENTER);
+        topPanel.setPadding(new Insets(30, 10, 10, 10)); // Thêm padding top 20px để dịch xuống
+
+        // Tạo layout chính
+        VBox mainLayout = new VBox(3);
+        HBox gameLayout = new HBox(3);
         gameLayout.setAlignment(Pos.CENTER);
-        gameLayout.setPadding(new Insets(10));
+        gameLayout.setPadding(new Insets(3));
 
         VBox boardContainer = new VBox(root);
         boardContainer.setAlignment(Pos.CENTER);
         gameLayout.getChildren().addAll(boardContainer, rightPanel);
 
+        mainLayout.getChildren().addAll(topPanel, gameLayout);
+        mainLayout.setAlignment(Pos.CENTER);
+
         primaryStage.widthProperty().addListener((obs, oldVal, newVal) -> adjustBoardSize(root, chessBoard));
         primaryStage.heightProperty().addListener((obs, oldVal, newVal) -> adjustBoardSize(root, chessBoard));
 
-        Scene gameScene = new Scene(gameLayout, SCENE_WIDTH, SCENE_HEIGHT);
+        Scene gameScene = new Scene(mainLayout, SCENE_WIDTH, SCENE_HEIGHT);
         primaryStage.setScene(gameScene);
         adjustBoardSize(root, chessBoard);
         chessGame.setGameScene(gameScene);
@@ -300,8 +304,8 @@ public class UIPanel {
     private void adjustBoardSize(VBox root, GridPane chessBoard) {
         double windowWidth = primaryStage.getWidth();
         double windowHeight = primaryStage.getHeight();
-        double availableWidth = windowWidth - 250;
-        double availableHeight = windowHeight - 100;
+        double availableWidth = windowWidth - 270; // Trừ chiều rộng của rightPanel
+        double availableHeight = windowHeight - 150; // Trừ chiều cao của topPanel và padding
 
         double tileSize = Math.min(availableWidth, availableHeight) / Board.getBoardSize();
         tileSize = Math.max(MIN_TILE_SIZE, Math.min(MAX_TILE_SIZE, tileSize));
@@ -332,7 +336,7 @@ public class UIPanel {
         chessBoard.setPrefWidth(tileSize * Board.getBoardSize());
         chessBoard.setPrefHeight(tileSize * Board.getBoardSize());
         root.setPrefWidth(tileSize * Board.getBoardSize());
-        root.setPrefHeight(tileSize * Board.getBoardSize() + 60);
+        root.setPrefHeight(tileSize * Board.getBoardSize());
     }
 
     public String getDifficulty() {
